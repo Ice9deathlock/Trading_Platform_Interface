@@ -1,8 +1,9 @@
 "use client"
-import { useState, useEffect, useRef, useCallback } from "react"
-import type React from "react"
 
-// Simplified Trading Types
+import { useState, useEffect, useRef } from "react"
+import type React from "react"
+import { Badge } from "@/components/ui/badge"
+
 export type OrderSide = "buy" | "sell"
 export type OrderType = "market" | "limit" | "stop" | "stop_limit"
 
@@ -15,6 +16,7 @@ export interface Instrument {
   bid: number
   ask: number
   mid: number
+  changePercent: string
 }
 
 export interface Position {
@@ -26,107 +28,135 @@ export interface Position {
   unrealizedPnL: number
 }
 
+interface TradingTab {
+  id: string
+  symbol: string
+  title: string
+}
+
 // Sample data
-const sampleInstruments: Instrument[] = [
+const sampleInstruments = [
+  { symbol: "AAPL", name: "Apple Inc.", mid: 227.88, bid: 227.88, ask: 227.89, change: -5.51, changePercent: "-2.36%" },
+  { symbol: "CVX", name: "Chevron Corp.", mid: 156.38, ask: 156.38, bid: 158.36, change: 1.53, changePercent: "0.99%" },
   {
-    symbol: "FX:EURUSD",
-    name: "EURUSD",
-    price: "1.15874",
-    change: "+0.19%",
-    changeValue: "+0.00222",
-    bid: 1.15854,
-    ask: 1.15894,
-    mid: 1.15874,
+    symbol: "CSCO",
+    name: "Cisco Systems Inc.",
+    mid: 67.86,
+    ask: 67.85,
+    bid: 67.86,
+    change: 0.52,
+    changePercent: "0.77%",
+  },
+  { symbol: "KO", name: "Coca-Cola Co.", mid: 67.35, ask: 67.34, bid: 67.35, change: -0.12, changePercent: "-0.18%" },
+  { symbol: "GS", name: "Goldman Sachs", mid: 765.73, ask: 765.37, bid: 765.87, change: 1.81, changePercent: "0.24%" },
+  { symbol: "INTC", name: "Intel Corp.", mid: 24.4, ask: 24.4, bid: 24.41, change: -0.04, changePercent: "-0.16%" },
+  {
+    symbol: "IBM",
+    name: "International Business Mac.",
+    mid: 259.26,
+    ask: 259.16,
+    bid: 259.27,
+    change: 0.15,
+    changePercent: "0.06%",
   },
   {
-    symbol: "FX:EURJPY",
-    name: "EURJPY",
-    price: "171.526",
-    change: "-0.05%",
-    changeValue: "-0.090",
-    bid: 171.516,
-    ask: 171.536,
-    mid: 171.526,
+    symbol: "XOM",
+    name: "Exxon Mobil Corporation",
+    mid: 111.27,
+    ask: 111.3,
+    bid: 111.31,
+    change: 0.61,
+    changePercent: "0.55%",
   },
   {
-    symbol: "FX:GBPUSD",
-    name: "GBPUSD",
-    price: "1.34397",
-    change: "+0.18%",
-    changeValue: "+0.00237",
-    bid: 1.34377,
-    ask: 1.34417,
-    mid: 1.34397,
+    symbol: "JPM",
+    name: "JPMorgan Chase & Co.",
+    mid: 298.73,
+    ask: 298.59,
+    bid: 298.72,
+    change: 0.18,
+    changePercent: "0.06%",
   },
   {
-    symbol: "FX:GBPJPY",
-    name: "GBPJPY",
-    price: "198.869",
-    change: "+0.09%",
-    changeValue: "+0.178",
-    bid: 198.859,
-    ask: 198.879,
-    mid: 198.869,
+    symbol: "JNJ",
+    name: "Johnson & Johnson",
+    mid: 174.64,
+    ask: 174.61,
+    bid: 174.65,
+    change: -2.32,
+    changePercent: "-1.31%",
   },
   {
-    symbol: "FX:USDJPY",
-    name: "USD/JPY",
-    price: "148.007",
-    change: "-0.22%",
-    changeValue: "-0.330",
-    bid: 147.997,
-    ask: 148.017,
-    mid: 148.007,
+    symbol: "MCD",
+    name: "McDonald's Corp.",
+    mid: 306.18,
+    ask: 306.07,
+    bid: 306.37,
+    change: -6.33,
+    changePercent: "-2.03%",
   },
   {
-    symbol: "FX:EURCHF",
-    name: "EURCHF",
-    price: "0.93468",
-    change: "-0.06%",
-    changeValue: "-0.00056",
-    bid: 0.93458,
-    ask: 0.93478,
-    mid: 0.93468,
+    symbol: "MRK",
+    name: "Merck & Co. Inc.",
+    mid: 83.64,
+    ask: 83.67,
+    bid: 83.68,
+    change: -0.97,
+    changePercent: "-1.15%",
   },
   {
-    symbol: "FX:EURGBP",
-    name: "EURGBP",
-    price: "0.86248",
-    change: "-0.14%",
-    changeValue: "-0.00121",
-    bid: 0.86238,
-    ask: 0.86258,
-    mid: 0.86248,
+    symbol: "MSFT",
+    name: "Microsoft Corp.",
+    mid: 499.55,
+    ask: 499.49,
+    bid: 499.63,
+    change: 1.15,
+    changePercent: "0.23%",
+  },
+  { symbol: "PFE", name: "Pfizer Inc.", mid: 24.52, ask: 24.51, bid: 24.52, change: -0.2, changePercent: "-0.79%" },
+  {
+    symbol: "PG",
+    name: "Procter & Gamble Co.",
+    mid: 156.19,
+    ask: 156.17,
+    bid: 156.21,
+    change: -3.48,
+    changePercent: "-2.18%",
+  },
+  { symbol: "VZ", name: "Verizon Comms", mid: 43.06, ask: 43.06, bid: 43.07, change: -0.51, changePercent: "-1.17%" },
+  {
+    symbol: "WMT",
+    name: "Walmart Inc.",
+    mid: 100.91,
+    ask: 100.91,
+    bid: 100.92,
+    change: -1.36,
+    changePercent: "-1.33%",
+  },
+  { symbol: "V", name: "Visa Inc.", mid: 336.7, ask: 336.64, bid: 336.76, change: -7.24, changePercent: "-2.11%" },
+  {
+    symbol: "TRV",
+    name: "The Travelers Companies I.",
+    mid: 269.91,
+    ask: 269.42,
+    bid: 269.72,
+    change: -3.94,
+    changePercent: "-1.44%",
   },
   {
-    symbol: "XAUUSD",
-    name: "XAUUSD",
-    price: "3376.13",
-    change: "-0.51%",
-    changeValue: "-17.24",
-    bid: 3375.13,
-    ask: 3377.13,
-    mid: 3376.13,
+    symbol: "UNH",
+    name: "UnitedHealth Group Inc.",
+    mid: 342.81,
+    ask: 342.74,
+    bid: 342.88,
+    change: -5.11,
+    changePercent: "-1.47%",
   },
 ]
 
-const samplePositions: Position[] = [
-  {
-    symbol: "FX:EURUSD",
-    side: "long",
-    qty: 10000,
-    avgEntry: 1.105,
-    markPrice: 1.15856,
-    unrealizedPnL: 535.6,
-  },
-  {
-    symbol: "FX:GBPUSD",
-    side: "short",
-    qty: 5000,
-    avgEntry: 1.25,
-    markPrice: 1.34366,
-    unrealizedPnL: 468.3,
-  },
+const samplePositions = [
+  { symbol: "FX:EURUSD", side: "long", qty: 10000, avgEntry: "1.105", markPrice: "1.15856", unrealizedPnL: +535.6 },
+  { symbol: "FX:GBPUSD", side: "short", qty: 5000, avgEntry: "1.25", markPrice: "1.34366", unrealizedPnL: -468.3 },
 ]
 
 const generateRandomPriceData = (basePrice: number) => {
@@ -146,80 +176,80 @@ const generateRandomPriceData = (basePrice: number) => {
 }
 
 const WatchlistTable: React.FC<{
-  instruments: Instrument[]
+  instruments: typeof sampleInstruments
   onBidClick: (symbol: string) => void
   onAskClick: (symbol: string) => void
-}> = ({ instruments, onBidClick, onAskClick }) => {
-  const getCountryCode = (symbol: string) => {
-    const codes: { [key: string]: string } = {
-      "FX:EURUSD": "EU",
-      "FX:EURJPY": "EU",
-      "FX:GBPUSD": "GB",
-      "FX:GBPJPY": "GB",
-      "FX:USDJPY": "US",
-      "FX:EURCHF": "EU",
-      "FX:EURGBP": "EU",
-      XAUUSD: "XAU",
+  onAddSymbol: (symbol: string) => void
+}> = ({ instruments, onBidClick, onAskClick, onAddSymbol }) => {
+  const [priceDataMap, setPriceDataMap] = useState<{ [key: string]: any }>({})
+
+  useEffect(() => {
+    const updatePrices = () => {
+      const newPriceData: { [key: string]: any } = {}
+      instruments.forEach((instrument) => {
+        newPriceData[instrument.symbol] = {
+          ...instrument,
+          lastTraded: instrument.mid.toFixed(2),
+          priceUpdate: "15:15:18",
+          marketStatus: "O", // Open
+        }
+      })
+      setPriceDataMap(newPriceData)
     }
-    return codes[symbol] || "FX"
-  }
+
+    updatePrices()
+    const interval = setInterval(updatePrices, 3000)
+    return () => clearInterval(interval)
+  }, [instruments])
 
   return (
     <div className="overflow-auto scrollbar-hide">
       <table className="w-full text-xs">
-        <thead className="sticky top-0 bg-black">
-          <tr className="text-slate-400 border-b border-slate-700">
-            <th className="text-left py-2 px-2">Instrument</th>
-            <th className="text-center py-2 px-2">Bid</th>
-            <th className="text-center py-2 px-2">Ask</th>
-            <th className="text-center py-2 px-2">Spread</th>
-            <th className="text-center py-2 px-2">Net</th>
-            <th className="text-center py-2 px-2">% 1D</th>
-            <th className="text-center py-2 px-2">Price update</th>
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left py-2 px-2 text-muted-foreground font-medium">Instrument</th>
+            <th className="text-right py-2 px-2 text-muted-foreground font-medium">Last traded</th>
+            <th className="text-right py-2 px-2 text-muted-foreground font-medium">Net</th>
+            <th className="text-right py-2 px-2 text-muted-foreground font-medium">% 1D</th>
+            <th className="text-right py-2 px-2 text-muted-foreground font-medium">Bid</th>
+            <th className="text-right py-2 px-2 text-muted-foreground font-medium">Ask</th>
+            <th className="text-center py-2 px-2 text-muted-foreground font-medium">Price update</th>
+            <th className="text-center py-2 px-2 text-muted-foreground font-medium">M</th>
           </tr>
         </thead>
         <tbody>
           {instruments.map((instrument) => {
-            const priceData = generateRandomPriceData(instrument.mid)
-            const isPositive = Number.parseFloat(priceData.changePercent) >= 0
+            const priceData = priceDataMap[instrument.symbol] || instrument
+            const isPositive = instrument.change >= 0
 
             return (
-              <tr key={instrument.symbol} className="border-b border-slate-800 hover:bg-slate-800/50">
-                <td className="py-2 px-2">
+              <tr key={instrument.symbol} className="border-b border-border hover:bg-card/50">
+                <td className="py-1 px-2">
                   <div className="flex items-center space-x-2">
-                    <span className="text-xs text-slate-400 font-mono">{getCountryCode(instrument.symbol)}</span>
-                    <span className="text-white font-medium">{instrument.name}</span>
+                    <span className="text-foreground font-medium text-xs">{instrument.name}</span>
                   </div>
                 </td>
-                <td className="py-2 px-2 text-center">
-                  <button
-                    onClick={() => onBidClick(instrument.symbol)}
-                    className="bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
-                  >
-                    {priceData.bid}
-                  </button>
-                </td>
-                <td className="py-2 px-2 text-center">
-                  <button
-                    onClick={() => onAskClick(instrument.symbol)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs font-medium transition-colors"
-                  >
-                    {priceData.ask}
-                  </button>
-                </td>
-                <td className="py-2 px-2 text-center text-white">{priceData.spread}</td>
-                <td className={`py-2 px-2 text-center font-medium ${isPositive ? "text-green-400" : "text-red-400"}`}>
-                  {priceData.net}
-                </td>
-                <td className={`py-2 px-2 text-center font-medium ${isPositive ? "text-green-400" : "text-red-400"}`}>
+                <td className="py-1 px-2 text-right text-foreground font-medium text-xs">{priceData.lastTraded}</td>
+                <td
+                  className={`py-1 px-2 text-right font-medium text-xs ${isPositive ? "text-primary" : "text-destructive"}`}
+                >
                   {isPositive ? "+" : ""}
-                  {priceData.changePercent}%
+                  {instrument.change.toFixed(2)}
                 </td>
-                <td className="py-2 px-2 text-center">
-                  <div className="flex items-center justify-center space-x-1">
-                    <span className="text-slate-300">{priceData.lastUpdate}</span>
-                    <span className="text-green-400 text-xs">●</span>
-                  </div>
+                <td
+                  className={`py-1 px-2 text-right font-medium text-xs ${isPositive ? "text-primary" : "text-destructive"}`}
+                >
+                  {instrument.changePercent}
+                </td>
+                <td className="py-1 px-2 text-right text-foreground font-medium text-xs">
+                  {instrument.bid.toFixed(2)}
+                </td>
+                <td className="py-1 px-2 text-right text-foreground font-medium text-xs">
+                  {instrument.ask.toFixed(2)}
+                </td>
+                <td className="py-1 px-2 text-center text-foreground text-xs">{priceData.priceUpdate}</td>
+                <td className="py-1 px-2 text-center">
+                  <span className="text-foreground text-xs font-bold">{priceData.marketStatus}</span>
                 </td>
               </tr>
             )
@@ -233,7 +263,8 @@ const WatchlistTable: React.FC<{
 const TradingInstrumentCard: React.FC<{
   instrument: Instrument
   onQuickTrade: (symbol: string, side: OrderSide, quantity: number) => void
-}> = ({ instrument, onQuickTrade }) => {
+  onAddSymbol: (symbol: string) => void
+}> = ({ instrument, onQuickTrade, onAddSymbol }) => {
   const [quantity, setQuantity] = useState(0.5)
   const [tolerance, setTolerance] = useState(0)
 
@@ -245,33 +276,35 @@ const TradingInstrumentCard: React.FC<{
     setTolerance(Math.max(0, tolerance + delta))
   }
 
-  const getCountryCode = (symbol: string) => {
-    const codes: { [key: string]: string } = {
-      "FX:EURUSD": "EU",
-      "FX:GBPUSD": "GB",
-      "FX:USDJPY": "US",
-      "FX:USDCHF": "US",
-      "FX:AUDUSD": "AU",
-      "FX:USDCAD": "US",
-    }
-    return codes[symbol] || "FX"
-  }
-
   return (
-    <div className="bg-slate-800 border border-slate-700 rounded-lg p-2 space-y-2">
-      {/* Header */}
+    <div className="bg-slate-800 border border-slate-700 rounded-lg p-3 space-y-2">
+      {/* Header with country code and symbol */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-1">
-          <span className="text-xs text-slate-400 font-mono">{getCountryCode(instrument.symbol)}</span>
-          <span className="text-white font-medium text-xs">{instrument.name}</span>
+        <div className="flex items-center space-x-2">
+          <span className="text-xs font-medium text-slate-400">
+            {instrument.symbol.includes("EUR")
+              ? "EU"
+              : instrument.symbol.includes("GBP")
+                ? "GB"
+                : instrument.symbol.includes("USD")
+                  ? "US"
+                  : instrument.symbol.includes("JPY")
+                    ? "JP"
+                    : "XAU"}
+          </span>
+          <span className="text-white font-bold text-sm">{instrument.name}</span>
+          <span className="text-green-400 text-xs">●</span>
         </div>
-        <div className="flex items-center space-x-1">
-          <span className="text-blue-400 text-xs">●</span>
-          <button className="text-slate-400 hover:text-white text-xs">⋯</button>
-        </div>
+        <button
+          onClick={() => onAddSymbol(instrument.symbol)}
+          className="w-4 h-4 bg-blue-600 hover:bg-blue-700 text-white rounded flex items-center justify-center text-xs font-bold transition-colors"
+          title="Open in new tab"
+        >
+          +
+        </button>
       </div>
 
-      {/* Quantity */}
+      {/* Quantity Controls */}
       <div className="flex items-center justify-between">
         <span className="text-slate-300 text-xs font-medium">Quantity</span>
         <div className="flex items-center space-x-1">
@@ -281,7 +314,7 @@ const TradingInstrumentCard: React.FC<{
           >
             −
           </button>
-          <span className="text-white font-bold text-sm min-w-[2.5rem] text-center">{quantity.toFixed(1)}</span>
+          <span className="text-white font-bold text-sm min-w-[2rem] text-center">{quantity.toFixed(1)}</span>
           <button
             onClick={() => handleQuantityChange(0.1)}
             className="w-5 h-5 bg-slate-700 hover:bg-slate-600 text-white rounded flex items-center justify-center text-xs font-bold"
@@ -326,16 +359,16 @@ const TradingInstrumentCard: React.FC<{
         <span className="text-slate-300 text-xs font-medium">Tolerance</span>
         <div className="flex items-center space-x-1">
           <button
-            onClick={() => handleToleranceChange(-0.1)}
+            onClick={() => handleToleranceChange(-1)}
             className="w-5 h-5 bg-slate-700 hover:bg-slate-600 text-white rounded flex items-center justify-center text-xs font-bold"
           >
             −
           </button>
-          <span className="text-white font-medium text-xs min-w-[1.5rem] text-center">
-            {tolerance === 0 ? "Off" : tolerance.toFixed(1)}
+          <span className="text-white font-bold text-sm min-w-[2rem] text-center">
+            {tolerance === 0 ? "Off" : tolerance}
           </span>
           <button
-            onClick={() => handleToleranceChange(0.1)}
+            onClick={() => handleToleranceChange(1)}
             className="w-5 h-5 bg-slate-700 hover:bg-slate-600 text-white rounded flex items-center justify-center text-xs font-bold"
           >
             +
@@ -344,13 +377,13 @@ const TradingInstrumentCard: React.FC<{
       </div>
 
       {/* Net Position and P/L */}
-      <div className="space-y-0.5 text-xs">
-        <div className="flex justify-between">
-          <span className="text-slate-400">Net pos</span>
+      <div className="space-y-1">
+        <div className="flex justify-between text-xs">
+          <span className="text-slate-300">Net pos</span>
           <span className="text-white">−</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-slate-400">P/L</span>
+        <div className="flex justify-between text-xs">
+          <span className="text-slate-300">P/L</span>
           <span className="text-white">−</span>
         </div>
       </div>
@@ -358,7 +391,7 @@ const TradingInstrumentCard: React.FC<{
   )
 }
 
-const ProductOverview = ({ selectedInstrument }: { selectedInstrument: string }) => {
+const ProductOverview: React.FC<{ selectedInstrument: string }> = ({ selectedInstrument }) => {
   const symbolInfoRef = useRef<HTMLDivElement>(null)
   const miniChartRef = useRef<HTMLDivElement>(null)
   const technicalAnalysisRef = useRef<HTMLDivElement>(null)
@@ -366,13 +399,11 @@ const ProductOverview = ({ selectedInstrument }: { selectedInstrument: string })
   const fundamentalDataRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!selectedInstrument) return
-
-    const loadWidgets = () => {
+    const loadTradingViewWidgets = () => {
       // Symbol Info Widget
       if (symbolInfoRef.current) {
         symbolInfoRef.current.innerHTML = `
-          <div class="tradingview-widget-container" style="height:200px;width:100%">
+          <div class="tradingview-widget-container" style="height:400px;width:100%">
             <div class="tradingview-widget-container__widget"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-symbol-info.js" async>
             {
@@ -439,8 +470,8 @@ const ProductOverview = ({ selectedInstrument }: { selectedInstrument: string })
             {
               "width": "100%",
               "height": "400",
-              "isTransparent": false,
               "colorTheme": "dark",
+              "isTransparent": false,
               "symbol": "${selectedInstrument}",
               "locale": "en"
             }
@@ -456,12 +487,12 @@ const ProductOverview = ({ selectedInstrument }: { selectedInstrument: string })
             <div class="tradingview-widget-container__widget"></div>
             <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-financials.js" async>
             {
+              "colorTheme": "dark",
               "isTransparent": false,
               "largeChartUrl": "",
               "displayMode": "regular",
               "width": "100%",
               "height": "400",
-              "colorTheme": "dark",
               "symbol": "${selectedInstrument}",
               "locale": "en"
             }
@@ -471,13 +502,12 @@ const ProductOverview = ({ selectedInstrument }: { selectedInstrument: string })
       }
     }
 
-    // Small delay to ensure DOM is ready
-    const timer = setTimeout(loadWidgets, 100)
+    const timer = setTimeout(loadTradingViewWidgets, 100)
     return () => clearTimeout(timer)
   }, [selectedInstrument])
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-hide p-4 space-y-4">
+    <div className="space-y-4 p-4 overflow-y-auto scrollbar-hide">
       <div className="bg-slate-800 rounded-lg p-4">
         <h3 className="text-white font-medium mb-4">Symbol Information</h3>
         <div ref={symbolInfoRef} className="w-full" />
@@ -506,14 +536,16 @@ const ProductOverview = ({ selectedInstrument }: { selectedInstrument: string })
   )
 }
 
-const TradingViewChart = () => {
+const TradingViewChart = ({ selectedInstrument }: { selectedInstrument: string }) => {
   const chartRef = useRef<HTMLDivElement>(null)
-  const [initialized, setInitialized] = useState(false)
+  const chartId = useRef(
+    `tradingview_${selectedInstrument.replace(/[^a-zA-Z0-9]/g, "_")}_${Math.random().toString(36).substr(2, 9)}`,
+  )
 
   useEffect(() => {
-    if (!chartRef.current || initialized) return
+    if (!chartRef.current) return
 
-    console.log("[v0] Loading TradingView chart for symbol:", chartRef.current.id)
+    console.log("[v0] Loading TradingView chart for symbol:", selectedInstrument)
 
     // Clear existing widget
     chartRef.current.innerHTML = ""
@@ -524,7 +556,6 @@ const TradingViewChart = () => {
       script.src = "https://s3.tradingview.com/tv.js"
       script.async = true
       script.onload = () => {
-        console.log("[v0] TradingView chart script loaded successfully")
         initializeWidget()
       }
       document.head.appendChild(script)
@@ -536,706 +567,659 @@ const TradingViewChart = () => {
       if (window.TradingView && chartRef.current) {
         new window.TradingView.widget({
           autosize: true,
-          symbol: "FX:EURUSD",
-          interval: "1D",
+          symbol: selectedInstrument,
+          interval: "D",
           timezone: "Etc/UTC",
           theme: "dark",
           style: "1",
           locale: "en",
           toolbar_bg: "#1e293b",
           enable_publishing: false,
-          hide_top_toolbar: false,
-          hide_legend: false,
-          save_image: false,
-          container_id: chartRef.current.id,
+          allow_symbol_change: true,
+          container_id: chartId.current,
           studies: ["Volume@tv-basicstudies"],
           overrides: {
             "paneProperties.background": "#0f172a",
             "paneProperties.vertGridProperties.color": "#334155",
             "paneProperties.horzGridProperties.color": "#334155",
             "symbolWatermarkProperties.transparency": 90,
-            "scalesProperties.textColor": "#94a3b8",
-            "mainSeriesProperties.candleStyle.wickUpColor": "#22c55e",
-            "mainSeriesProperties.candleStyle.wickDownColor": "#ef4444",
-            "mainSeriesProperties.candleStyle.upColor": "#22c55e",
-            "mainSeriesProperties.candleStyle.downColor": "#ef4444",
-            "mainSeriesProperties.candleStyle.borderUpColor": "#22c55e",
-            "mainSeriesProperties.candleStyle.borderDownColor": "#ef4444",
+            "scalesProperties.textColor": "#cbd5e1",
           },
         })
-        setInitialized(true)
       }
     }
-  }, []) // Empty dependency array to prevent infinite loop
-
-  return (
-    <div className="h-full w-full overflow-hidden">
-      <div ref={chartRef} id="tradingview_chart" className="h-full w-full" />
-    </div>
-  )
-}
-
-const DepthOfMarket = ({ selectedInstrument }: { selectedInstrument: string }) => {
-  const [orderBookData, setOrderBookData] = useState<{
-    bids: Array<{ price: number; size: number; total: number }>
-    asks: Array<{ price: number; size: number; total: number }>
-  }>({
-    bids: [],
-    asks: [],
-  })
-
-  useEffect(() => {
-    // Generate sample order book data
-    const generateOrderBook = () => {
-      const basePrice = 1.15874 // Base price for EURUSD
-      const bids = []
-      const asks = []
-      let bidTotal = 0
-      let askTotal = 0
-
-      // Generate bid levels (below market price)
-      for (let i = 0; i < 10; i++) {
-        const price = basePrice - (i + 1) * 0.00001
-        const size = Math.floor(Math.random() * 1000000) + 100000
-        bidTotal += size
-        bids.push({ price, size, total: bidTotal })
-      }
-
-      // Generate ask levels (above market price)
-      for (let i = 0; i < 10; i++) {
-        const price = basePrice + (i + 1) * 0.00001
-        const size = Math.floor(Math.random() * 1000000) + 100000
-        askTotal += size
-        asks.push({ price, size, total: askTotal })
-      }
-
-      setOrderBookData({ bids, asks })
-    }
-
-    generateOrderBook()
-    const interval = setInterval(generateOrderBook, 2000) // Update every 2 seconds
-
-    return () => clearInterval(interval)
   }, [selectedInstrument])
 
-  const maxTotal = Math.max(
-    Math.max(...orderBookData.bids.map((b) => b.total)),
-    Math.max(...orderBookData.asks.map((a) => a.total)),
-  )
+  return <div ref={chartRef} id={chartId.current} className="w-full h-full" />
+}
+
+const DraggableWidget: React.FC<{
+  id: string
+  title: string
+  icon: string
+  description: string
+}> = ({ id, title, icon, description }) => {
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData("text/plain", JSON.stringify({ id, title, icon }))
+    e.dataTransfer.effectAllowed = "copy"
+  }
 
   return (
-    <div className="h-full overflow-y-auto scrollbar-hide p-4">
-      <div className="bg-slate-800 rounded-lg p-4">
-        <h3 className="text-white font-medium mb-4">Order Book - {selectedInstrument}</h3>
-
-        <div className="grid grid-cols-2 gap-4">
-          {/* Asks (Sell Orders) */}
-          <div>
-            <div className="text-red-400 font-medium mb-2 text-sm">Asks (Sell)</div>
-            <div className="space-y-1">
-              {orderBookData.asks
-                .slice()
-                .reverse()
-                .map((ask, index) => (
-                  <div key={index} className="relative flex justify-between items-center text-xs py-1 px-2 rounded">
-                    <div
-                      className="absolute inset-0 bg-red-900/20 rounded"
-                      style={{ width: `${(ask.total / maxTotal) * 100}%` }}
-                    />
-                    <span className="text-red-400 font-mono relative z-10">{ask.price.toFixed(5)}</span>
-                    <span className="text-white relative z-10">{ask.size.toLocaleString()}</span>
-                    <span className="text-slate-400 relative z-10">{ask.total.toLocaleString()}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-
-          {/* Bids (Buy Orders) */}
-          <div>
-            <div className="text-green-400 font-medium mb-2 text-sm">Bids (Buy)</div>
-            <div className="space-y-1">
-              {orderBookData.bids.map((bid, index) => (
-                <div key={index} className="relative flex justify-between items-center text-xs py-1 px-2 rounded">
-                  <div
-                    className="absolute inset-0 bg-green-900/20 rounded"
-                    style={{ width: `${(bid.total / maxTotal) * 100}%` }}
-                  />
-                  <span className="text-green-400 font-mono relative z-10">{bid.price.toFixed(5)}</span>
-                  <span className="text-white relative z-10">{bid.size.toLocaleString()}</span>
-                  <span className="text-slate-400 relative z-10">{bid.total.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+    <div
+      draggable
+      onDragStart={handleDragStart}
+      className="bg-slate-800 border border-slate-700 rounded-lg p-3 cursor-grab hover:bg-slate-700 transition-colors group"
+    >
+      <div className="flex items-center space-x-3">
+        <div className="text-2xl">{icon}</div>
+        <div>
+          <h4 className="text-white font-medium text-sm">{title}</h4>
+          <p className="text-slate-400 text-xs">{description}</p>
         </div>
-
-        {/* Market Spread */}
-        <div className="mt-4 pt-4 border-t border-slate-700">
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-slate-400">Spread:</span>
-            <span className="text-white font-mono">
-              {orderBookData.asks.length > 0 && orderBookData.bids.length > 0
-                ? (orderBookData.asks[0].price - orderBookData.bids[0].price).toFixed(5)
-                : "0.00000"}
-            </span>
-          </div>
-          <div className="flex justify-between items-center text-sm mt-1">
-            <span className="text-slate-400">Mid Price:</span>
-            <span className="text-white font-mono">
-              {orderBookData.asks.length > 0 && orderBookData.bids.length > 0
-                ? ((orderBookData.asks[0].price + orderBookData.bids[0].price) / 2).toFixed(5)
-                : "0.00000"}
-            </span>
-          </div>
+      </div>
+      <div className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center text-xs text-slate-400">
+          <span className="mr-2">DRAG & DROP</span>
+          <span>→</span>
         </div>
       </div>
     </div>
   )
 }
 
-export default function TradingPlatform() {
-  const [selectedInstrument, setSelectedInstrument] = useState("FX:EURUSD")
-  const [leftPanelWidth, setLeftPanelWidth] = useState(400)
-  const [positionsHeight, setPositionsHeight] = useState(220)
-  const [activeTab, setActiveTab] = useState("Watchlists")
-  const [rightActiveTab, setRightActiveTab] = useState("Charts")
-  const [oneClickTradingEnabled, setOneClickTradingEnabled] = useState(false)
-  const [showTradeModal, setShowTradeModal] = useState(false)
-  const [isDraggingHorizontal, setIsDraggingHorizontal] = useState(false)
-  const [isDraggingVertical, setIsDraggingVertical] = useState(false)
+const WorkspaceDropZone: React.FC<{
+  onDrop: (widgetData: any) => void
+  hasWidgets: boolean
+  droppedWidgets: any[]
+  onRemoveWidget: (index: number) => void
+  onReorderWidgets: (fromIndex: number, toIndex: number) => void
+}> = ({ onDrop, hasWidgets, droppedWidgets, onRemoveWidget, onReorderWidgets }) => {
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [resizingWidget, setResizingWidget] = useState<number | null>(null)
+  const [draggedWidgetIndex, setDraggedWidgetIndex] = useState<number | null>(null)
+  const [widgetSizes, setWidgetSizes] = useState<{ [key: number]: { width: number; height: number } }>({})
 
-  const [windowsSwapped, setWindowsSwapped] = useState(false)
-  const [depthOfMarketDetached, setDepthOfMarketDetached] = useState(false)
-  const [depthOfMarketPosition, setDepthOfMarketPosition] = useState({ x: 100, y: 100 })
-  const [isDraggingWindow, setIsDraggingWindow] = useState(false)
-  const [isDraggingTab, setIsDraggingTab] = useState(false)
-
-  const handleWindowSwap = useCallback(() => {
-    setWindowsSwapped(!windowsSwapped)
-  }, [windowsSwapped])
-
-  const handleDetachDepthOfMarket = useCallback((e: React.MouseEvent) => {
+  const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
-    setIsDraggingTab(true)
+    setIsDragOver(true)
+  }
+
+  const handleDragLeave = () => {
+    setIsDragOver(false)
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+    const widgetData = JSON.parse(e.dataTransfer.getData("text/plain"))
+    onDrop(widgetData)
+  }
+
+  const handleWidgetDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData("text/plain", JSON.stringify({ type: "reorder", index }))
+    e.dataTransfer.effectAllowed = "move"
+    setDraggedWidgetIndex(index)
+  }
+
+  const handleWidgetDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const data = JSON.parse(e.dataTransfer.getData("text/plain"))
+    if (data.type === "reorder" && data.index !== targetIndex) {
+      onReorderWidgets(data.index, targetIndex)
+    }
+    setDraggedWidgetIndex(null)
+  }
+
+  const handleResizeStart = (e: React.MouseEvent, widgetIndex: number) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setResizingWidget(widgetIndex)
+
+    const startX = e.clientX
+    const startY = e.clientY
+    const currentSize = widgetSizes[widgetIndex] || { width: 300, height: 200 }
 
     const handleMouseMove = (e: MouseEvent) => {
-      const rect = document.body.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
+      const deltaX = e.clientX - startX
+      const deltaY = e.clientY - startY
 
-      // If dragged far enough from original position, detach
-      if (Math.abs(x - e.clientX) > 50 || Math.abs(y - e.clientY) > 50) {
-        setDepthOfMarketDetached(true)
-        setDepthOfMarketPosition({ x: e.clientX - 200, y: e.clientY - 50 })
-        setRightActiveTab("Charts") // Switch back to Charts tab
-      }
+      const newWidth = Math.max(200, currentSize.width + deltaX)
+      const newHeight = Math.max(150, currentSize.height + deltaY)
+
+      setWidgetSizes((prev) => ({
+        ...prev,
+        [widgetIndex]: { width: newWidth, height: newHeight },
+      }))
     }
 
     const handleMouseUp = () => {
-      setIsDraggingTab(false)
+      setResizingWidget(null)
       document.removeEventListener("mousemove", handleMouseMove)
       document.removeEventListener("mouseup", handleMouseUp)
     }
 
     document.addEventListener("mousemove", handleMouseMove)
     document.addEventListener("mouseup", handleMouseUp)
-  }, [])
+  }
 
-  const handleDetachedWindowMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault()
-      setIsDraggingWindow(true)
-
-      const startX = e.clientX - depthOfMarketPosition.x
-      const startY = e.clientY - depthOfMarketPosition.y
-
-      const handleMouseMove = (e: MouseEvent) => {
-        setDepthOfMarketPosition({
-          x: e.clientX - startX,
-          y: e.clientY - startY,
-        })
-      }
-
-      const handleMouseUp = () => {
-        setIsDraggingWindow(false)
-        document.removeEventListener("mousemove", handleMouseMove)
-        document.removeEventListener("mouseup", handleMouseUp)
-      }
-
-      document.addEventListener("mousemove", handleMouseMove)
-      document.addEventListener("mouseup", handleMouseUp)
-    },
-    [depthOfMarketPosition],
-  )
-
-  const handleHorizontalMouseDown = useCallback((e: React.MouseEvent) => {
+  const handleCloseWidget = (e: React.MouseEvent, index: number) => {
     e.preventDefault()
-    setIsDraggingHorizontal(true)
-  }, [])
-
-  const handleHorizontalMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isDraggingHorizontal) return
-      const newWidth = Math.max(300, Math.min(600, e.clientX - 8))
-      setLeftPanelWidth(newWidth)
-    },
-    [isDraggingHorizontal],
-  )
-
-  const handleHorizontalMouseUp = useCallback(() => {
-    setIsDraggingHorizontal(false)
-  }, [])
-
-  const handleVerticalMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    setIsDraggingVertical(true)
-  }, [])
-
-  const handleVerticalMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (!isDraggingVertical) return
-      const windowHeight = window.innerHeight
-      const newHeight = Math.max(150, Math.min(400, windowHeight - e.clientY - 8))
-      setPositionsHeight(newHeight)
-    },
-    [isDraggingVertical],
-  )
-
-  const handleVerticalMouseUp = useCallback(() => {
-    setIsDraggingVertical(false)
-  }, [])
-
-  const handleQuickTrade = (symbol: string, side: OrderSide, quantity: number) => {
-    // Placeholder for quick trade logic
-    console.log(`Quick trade for ${symbol} ${side} ${quantity}`)
+    e.stopPropagation()
+    onRemoveWidget(index)
+    setWidgetSizes((prev) => {
+      const newSizes = { ...prev }
+      delete newSizes[index]
+      return newSizes
+    })
   }
-
-  const handleBidClick = (symbol: string) => {
-    setSelectedInstrument(symbol)
-    setShowTradeModal(true)
-  }
-
-  const handleAskClick = (symbol: string) => {
-    setSelectedInstrument(symbol)
-    setShowTradeModal(true)
-  }
-
-  useEffect(() => {
-    if (isDraggingHorizontal) {
-      document.addEventListener("mousemove", handleHorizontalMouseMove)
-      document.addEventListener("mouseup", handleHorizontalMouseUp)
-      document.body.style.cursor = "col-resize"
-      document.body.style.userSelect = "none"
-    } else {
-      document.removeEventListener("mousemove", handleHorizontalMouseMove)
-      document.removeEventListener("mouseup", handleHorizontalMouseUp)
-      document.body.style.cursor = ""
-      document.body.style.userSelect = ""
-    }
-
-    return () => {
-      document.removeEventListener("mousemove", handleHorizontalMouseMove)
-      document.removeEventListener("mouseup", handleHorizontalMouseUp)
-    }
-  }, [isDraggingHorizontal, handleHorizontalMouseMove, handleHorizontalMouseUp])
-
-  useEffect(() => {
-    if (isDraggingVertical) {
-      document.addEventListener("mousemove", handleVerticalMouseMove)
-      document.addEventListener("mouseup", handleVerticalMouseUp)
-      document.body.style.cursor = "row-resize"
-      document.body.style.userSelect = "none"
-    } else {
-      document.removeEventListener("mousemove", handleVerticalMouseMove)
-      document.removeEventListener("mouseup", handleVerticalMouseUp)
-      document.body.style.cursor = ""
-      document.body.style.userSelect = ""
-    }
-
-    return () => {
-      document.removeEventListener("mousemove", handleVerticalMouseMove)
-      document.removeEventListener("mouseup", handleVerticalMouseUp)
-    }
-  }, [isDraggingVertical, handleVerticalMouseMove, handleVerticalMouseUp])
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col">
-      {/* Header */}
-      <header className="bg-black border-b border-slate-700 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <span className="text-blue-400 font-bold text-xl">SpiderX</span>
-          <span className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-semibold">DEMO</span>
-          <span className="text-white font-semibold">TraderGO</span>
+    <div
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className={`flex-1 rounded-lg border-2 border-dashed transition-all ${
+        isDragOver ? "border-blue-500 bg-blue-500/10" : hasWidgets ? "border-slate-700" : "border-slate-600"
+      }`}
+    >
+      {!hasWidgets ? (
+        <div className="h-full flex flex-col items-center justify-center text-center p-8">
+          <div className="mb-8">
+            <h2 className="text-2xl text-slate-300 mb-4">Drag first widget on the workspace</h2>
+          </div>
         </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-4 p-4 h-full overflow-auto scrollbar-hide">
+          {droppedWidgets.map((widget, index) => {
+            const size = widgetSizes[index] || { width: 300, height: 200 }
+            return (
+              <div
+                key={index}
+                className="bg-slate-800 border border-slate-700 rounded-lg relative group"
+                style={{ width: `${size.width}px`, height: `${size.height}px` }}
+                draggable
+                onDragStart={(e) => handleWidgetDragStart(e, index)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => handleWidgetDrop(e, index)}
+              >
+                <div className="flex items-center justify-between p-3 border-b border-slate-700">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">{widget.icon}</span>
+                    <h3 className="text-white font-medium text-sm">{widget.title}</h3>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onMouseDown={(e) => handleResizeStart(e, index)}
+                      className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition-all cursor-se-resize"
+                      title="Resize"
+                    >
+                      ⤡
+                    </button>
+                    <button
+                      onClick={(e) => handleCloseWidget(e, index)}
+                      className="text-slate-400 hover:text-red-400 transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+                <div className="p-3 h-full overflow-auto scrollbar-hide">
+                  <p className="text-slate-300 text-sm">{widget.title} content would go here</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
-        <nav className="flex space-x-6 justify-center flex-1">
-          <button className="text-white font-medium hover:text-blue-400 transition-colors">TRADING</button>
-          <button className="text-slate-400 font-medium hover:text-white transition-colors">RESEARCH</button>
-          <button className="text-slate-400 font-medium hover:text-white transition-colors">ACCOUNT</button>
-        </nav>
+export default function TradingPlatform() {
+  const [activeTab, setActiveTab] = useState<"trading" | "charts" | "news" | "account">("trading")
+  const [selectedInstrument, setSelectedInstrument] = useState("EURUSD")
+  const [leftPanelWidth, setLeftPanelWidth] = useState(320)
+  const [positionsHeight, setPositionsHeight] = useState(200)
+  const [tradingInstrumentsHidden, setTradingInstrumentsHidden] = useState(false)
+  const [showDepthOfMarket, setShowDepthOfMarket] = useState(false)
+  const [chartActiveTab, setChartActiveTab] = useState<"charts" | "overview">("charts")
 
-        <div className="flex items-center space-x-4">
-          <input
-            type="text"
-            placeholder="Instrument search"
-            className="bg-slate-800 border border-slate-700 text-white px-4 py-2 rounded-lg w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <div className="w-8 h-8 bg-slate-600 rounded-full"></div>
+  const [eurUsdPrice, setEurUsdPrice] = useState(1.16831)
+  const [eurUsdChange, setEurUsdChange] = useState(-0.00037)
+  const [eurUsdChangePercent, setEurUsdChangePercent] = useState(-0.03)
+
+  return (
+    <div className="h-screen flex flex-col bg-background text-foreground">
+      {/* Header */}
+      <header className="bg-card border-b border-border px-6 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-6">
+            <div className="flex items-center space-x-2">
+              <h1 className="text-xl font-bold text-foreground">SaxoTraderPRO</h1>
+              <Badge variant="secondary" className="text-xs bg-primary text-primary-foreground">
+                BETA
+              </Badge>
+            </div>
+
+            {/* Navigation */}
+            <nav className="flex space-x-1">
+              <button
+                onClick={() => setActiveTab("trading")}
+                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                  activeTab === "trading"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-card"
+                }`}
+              >
+                Trading
+              </button>
+              <button
+                onClick={() => setActiveTab("charts")}
+                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                  activeTab === "charts"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-card"
+                }`}
+              >
+                Charts
+              </button>
+              <button
+                onClick={() => setActiveTab("news")}
+                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                  activeTab === "news"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-card"
+                }`}
+              >
+                News & Research
+              </button>
+              <button
+                onClick={() => setActiveTab("account")}
+                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                  activeTab === "account"
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-card"
+                }`}
+              >
+                Account
+              </button>
+            </nav>
+          </div>
+
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Instrument search"
+                className="bg-input border border-border rounded px-3 py-1 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <button className="text-muted-foreground hover:text-foreground">Add Module</button>
+          </div>
         </div>
       </header>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Section */}
-        <div className="flex flex-1 overflow-hidden">
-          {!windowsSwapped ? (
-            <>
-              {/* Left Panel - Trading Instruments */}
-              <div
-                className="bg-black border-2 border-slate-800 rounded-lg m-2 relative shadow-lg flex flex-col overflow-hidden"
-                style={{ width: leftPanelWidth }}
-              >
-                <div className="bg-slate-800 px-4 py-2 rounded-t-lg flex items-center justify-between flex-shrink-0">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white font-medium text-sm">Trading Instruments</span>
+        {activeTab === "trading" && (
+          <div className="flex-1 flex">
+            {/* Left Panel - Stock Watchlist */}
+            {!tradingInstrumentsHidden && (
+              <div className="border-r border-border flex flex-col bg-card" style={{ width: `${leftPanelWidth}px` }}>
+                {/* Panel Header */}
+                <div className="flex items-center justify-between p-3 border-b border-border">
+                  <div className="flex items-center space-x-4 text-xs">
+                    <h2 className="text-sm font-semibold text-foreground">Stocks US</h2>
+                    <span className="text-xs text-muted-foreground">ECUS</span>
+                    <span className="text-xs text-muted-foreground">Depth Trader</span>
+                    <span className="text-xs text-muted-foreground">Option Chain</span>
                   </div>
-                  <button
-                    onClick={handleWindowSwap}
-                    className="text-slate-400 hover:text-white transition-colors"
-                    title="Swap windows"
-                  >
-                    ⇄
-                  </button>
                 </div>
 
-                <div className="p-4 flex-1 overflow-hidden flex flex-col">
-                  <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                    <h3 className="text-white font-medium">Watchlist</h3>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-slate-300">TraderBoard</span>
-                      <button
-                        onClick={() => setOneClickTradingEnabled(!oneClickTradingEnabled)}
-                        className={`w-10 h-6 rounded-full transition-colors ${
-                          oneClickTradingEnabled ? "bg-blue-600" : "bg-slate-600"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 bg-white rounded-full transition-transform ${
-                            oneClickTradingEnabled ? "translate-x-5" : "translate-x-1"
-                          }`}
-                        />
-                      </button>
-                    </div>
+                {/* Search and Add */}
+                <div className="p-3 border-b border-border">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      placeholder="Add instrument"
+                      className="flex-1 bg-input border border-border rounded px-2 py-1 text-xs text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <button className="bg-primary text-primary-foreground px-2 py-1 rounded text-xs font-medium hover:bg-primary/90">
+                      New
+                    </button>
                   </div>
+                </div>
 
-                  <div className="flex-1 overflow-y-auto scrollbar-hide">
-                    {oneClickTradingEnabled ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        {sampleInstruments.slice(0, 6).map((instrument) => (
-                          <TradingInstrumentCard
-                            key={instrument.symbol}
-                            instrument={instrument}
-                            onQuickTrade={handleQuickTrade}
-                          />
-                        ))}
+                {/* Watchlist Content */}
+                <div className="flex-1 overflow-auto scrollbar-hide">
+                  <WatchlistTable
+                    onAddSymbol={() => {}}
+                    onBidClick={() => {}}
+                    onAskClick={() => {}}
+                    instruments={sampleInstruments}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Center Panel - EURUSD Trading */}
+            <div className="w-80 border-r border-border flex flex-col bg-card">
+              {/* EURUSD Header */}
+              <div className="p-3 border-b border-border">
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg font-bold text-foreground">EURUSD</span>
+                  <span className="text-xs text-muted-foreground">Europe/Dollar</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <button className="text-muted-foreground hover:text-foreground text-xs">i</button>
+                  <button className="text-muted-foreground hover:text-foreground text-xs">≡</button>
+                  <button className="text-muted-foreground hover:text-foreground text-xs">⚙</button>
+                </div>
+              </div>
+
+              {/* Price Display */}
+              <div className="p-4 border-b border-border">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-foreground">{eurUsdPrice.toFixed(5)}</div>
+                  <div className={`text-sm ${eurUsdChange >= 0 ? "text-primary" : "text-destructive"}`}>
+                    {eurUsdChange >= 0 ? "+" : ""}
+                    {eurUsdChange.toFixed(5)} ({eurUsdChangePercent.toFixed(2)}%)
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">• Realtime prices</div>
+                </div>
+              </div>
+
+              {/* Quick Trade Section */}
+              <div className="p-4 border-b border-border">
+                <div className="text-center mb-3">
+                  <div className="text-xs text-muted-foreground mb-2">Quick Trade</div>
+                  <div className="flex items-center justify-center space-x-4">
+                    {/* SELL Button */}
+                    <div className="text-center">
+                      <button className="bg-destructive text-destructive-foreground px-6 py-4 rounded font-bold hover:bg-destructive/90">
+                        SELL • EUR
+                      </button>
+                      <div className="mt-2">
+                        <div className="text-3xl font-bold text-destructive">21</div>
+                        <div className="text-xs text-muted-foreground">Limit @ 1.17</div>
                       </div>
-                    ) : (
-                      <WatchlistTable
-                        instruments={sampleInstruments}
-                        onBidClick={handleBidClick}
-                        onAskClick={handleAskClick}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className="w-1 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors relative group"
-                onMouseDown={handleHorizontalMouseDown}
-              >
-                <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-500/20" />
-              </div>
-
-              {/* Main Chart Area */}
-              <div className="flex-1 bg-black border-2 border-slate-800 rounded-lg m-2 shadow-lg flex flex-col overflow-hidden">
-                <div className="bg-slate-800 px-4 py-2 rounded-t-lg flex items-center justify-between flex-shrink-0">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white font-medium text-sm">Chart Analysis</span>
-                  </div>
-                  <button
-                    onClick={() => setShowTradeModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded text-sm font-medium transition-colors"
-                  >
-                    Trade {selectedInstrument.split(":")[1] || selectedInstrument}
-                  </button>
-                </div>
-
-                <div className="p-4 flex-1 overflow-hidden flex flex-col">
-                  <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                    <div className="flex space-x-4">
-                      <button
-                        onClick={() => setRightActiveTab("Charts")}
-                        className={`font-medium pb-1 ${rightActiveTab === "Charts" ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-white"}`}
-                      >
-                        Charts
-                      </button>
-                      <button
-                        onClick={() => setRightActiveTab("Product overview")}
-                        className={`font-medium pb-1 ${rightActiveTab === "Product overview" ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-white"}`}
-                      >
-                        Product overview
-                      </button>
-                      <button
-                        onClick={() => setRightActiveTab("Depth of Market")}
-                        onMouseDown={handleDetachDepthOfMarket}
-                        className={`font-medium pb-1 cursor-move ${rightActiveTab === "Depth of Market" ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-white"}`}
-                        title="Drag to detach window"
-                      >
-                        Depth of Market
-                      </button>
                     </div>
-                  </div>
 
-                  <div className="flex-1 overflow-hidden">
-                    {rightActiveTab === "Charts" ? (
-                      <TradingViewChart />
-                    ) : rightActiveTab === "Product overview" ? (
-                      <ProductOverview selectedInstrument={selectedInstrument} />
-                    ) : (
-                      <DepthOfMarket selectedInstrument={selectedInstrument} />
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex-1 bg-black border-2 border-slate-800 rounded-lg m-2 shadow-lg flex flex-col overflow-hidden">
-                <div className="bg-slate-800 px-4 py-2 rounded-t-lg flex items-center justify-between flex-shrink-0">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white font-medium text-sm">Chart Analysis</span>
-                  </div>
-                  <button
-                    onClick={() => setShowTradeModal(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1 rounded text-sm font-medium transition-colors"
-                  >
-                    Trade {selectedInstrument.split(":")[1] || selectedInstrument}
-                  </button>
-                </div>
-
-                <div className="p-4 flex-1 overflow-hidden flex flex-col">
-                  <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                    <div className="flex space-x-4">
-                      <button
-                        onClick={() => setRightActiveTab("Charts")}
-                        className={`font-medium pb-1 ${rightActiveTab === "Charts" ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-white"}`}
-                      >
-                        Charts
-                      </button>
-                      <button
-                        onClick={() => setRightActiveTab("Product overview")}
-                        className={`font-medium pb-1 ${rightActiveTab === "Product overview" ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-white"}`}
-                      >
-                        Product overview
-                      </button>
-                      <button
-                        onClick={() => setRightActiveTab("Depth of Market")}
-                        onMouseDown={handleDetachDepthOfMarket}
-                        className={`font-medium pb-1 cursor-move ${rightActiveTab === "Depth of Market" ? "text-blue-400 border-b-2 border-blue-400" : "text-slate-400 hover:text-white"}`}
-                        title="Drag to detach window"
-                      >
-                        Depth of Market
-                      </button>
+                    {/* Spread */}
+                    <div className="text-center px-4">
+                      <div className="text-xs text-muted-foreground">0.9</div>
                     </div>
-                  </div>
 
-                  <div className="flex-1 overflow-hidden">
-                    {rightActiveTab === "Charts" ? (
-                      <TradingViewChart />
-                    ) : rightActiveTab === "Product overview" ? (
-                      <ProductOverview selectedInstrument={selectedInstrument} />
-                    ) : (
-                      <DepthOfMarket selectedInstrument={selectedInstrument} />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div
-                className="w-1 bg-slate-700 hover:bg-blue-500 cursor-col-resize transition-colors relative group"
-                onMouseDown={handleHorizontalMouseDown}
-              >
-                <div className="absolute inset-y-0 -left-1 -right-1 group-hover:bg-blue-500/20" />
-              </div>
-
-              <div
-                className="bg-black border-2 border-slate-800 rounded-lg m-2 relative shadow-lg flex flex-col overflow-hidden"
-                style={{ width: leftPanelWidth }}
-              >
-                <div className="bg-slate-800 px-4 py-2 rounded-t-lg flex items-center justify-between flex-shrink-0">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white font-medium text-sm">Trading Instruments</span>
-                  </div>
-                  <button
-                    onClick={handleWindowSwap}
-                    className="text-slate-400 hover:text-white transition-colors"
-                    title="Swap windows"
-                  >
-                    ⇄
-                  </button>
-                </div>
-
-                <div className="p-4 flex-1 overflow-hidden flex flex-col">
-                  <div className="flex items-center justify-between mb-4 flex-shrink-0">
-                    <h3 className="text-white font-medium">Watchlist</h3>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-slate-300">TraderBoard</span>
-                      <button
-                        onClick={() => setOneClickTradingEnabled(!oneClickTradingEnabled)}
-                        className={`w-10 h-6 rounded-full transition-colors ${
-                          oneClickTradingEnabled ? "bg-blue-600" : "bg-slate-600"
-                        }`}
-                      >
-                        <div
-                          className={`w-4 h-4 bg-white rounded-full transition-transform ${
-                            oneClickTradingEnabled ? "translate-x-5" : "translate-x-1"
-                          }`}
-                        />
+                    {/* BUY Button */}
+                    <div className="text-center">
+                      <button className="bg-primary text-primary-foreground px-6 py-4 rounded font-bold hover:bg-primary/90">
+                        BUY • EUR
                       </button>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto scrollbar-hide">
-                    {oneClickTradingEnabled ? (
-                      <div className="grid grid-cols-2 gap-2">
-                        {sampleInstruments.slice(0, 6).map((instrument) => (
-                          <TradingInstrumentCard
-                            key={instrument.symbol}
-                            instrument={instrument}
-                            onQuickTrade={handleQuickTrade}
-                          />
-                        ))}
+                      <div className="mt-2">
+                        <div className="text-3xl font-bold text-primary">21</div>
+                        <div className="text-xs text-muted-foreground">Limit @ 1.17</div>
                       </div>
-                    ) : (
-                      <WatchlistTable
-                        instruments={sampleInstruments}
-                        onBidClick={handleBidClick}
-                        onAskClick={handleAskClick}
-                      />
-                    )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quantity */}
+                <div className="text-center mb-3">
+                  <div className="text-xs text-muted-foreground mb-1">EUR</div>
+                  <div className="text-lg font-bold text-foreground">10,000</div>
+                </div>
+
+                {/* Price Tolerance */}
+                <div className="mb-4">
+                  <div className="text-xs text-muted-foreground mb-1">Price Tolerance</div>
+                  <div className="text-sm text-foreground">0.01%</div>
+                  <button className="text-xs text-primary hover:underline">Hide Details</button>
+                </div>
+
+                {/* Trade Info */}
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Trade fees</span>
+                    <span className="text-foreground">3.00 / 3.00 USD</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Initial margin available</span>
+                    <span className="text-foreground">499,489.47 USD</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Initial margin impact</span>
+                    <span className="text-foreground">390.32 / 390.32 USD</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Maintenance margin impact</span>
+                    <span className="text-foreground">194.57 / 194.57 USD</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Value Date</span>
+                    <span className="text-foreground">12-Sep-2025</span>
                   </div>
                 </div>
               </div>
-            </>
-          )}
-        </div>
 
-        <div
-          className="h-1 bg-slate-700 hover:bg-blue-500 cursor-row-resize transition-colors relative group mx-2"
-          onMouseDown={handleVerticalMouseDown}
-        >
-          <div className="absolute inset-x-0 -top-1 -bottom-1 group-hover:bg-blue-500/20" />
-        </div>
+              {/* Account Summary */}
+              <div className="p-4">
+                <div className="text-xs text-muted-foreground mb-2">Account Summary</div>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">TRIAL_21039730</span>
+                    <span className="text-foreground">USD</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cash</span>
+                    <span className="text-primary font-medium">499,489.47</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Value of positions</span>
+                    <span className="text-foreground">0.00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total accruals</span>
+                    <span className="text-foreground">0.00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Account value</span>
+                    <span className="text-foreground">499,489.47</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Account value shield</span>
+                    <span className="text-primary">Off</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Initial margin reserved</span>
+                    <span className="text-foreground">0.00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Initial margin available</span>
+                    <span className="text-primary">499,489.47</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Maintenance margin reserved</span>
+                    <span className="text-foreground">0.00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Maintenance margin available</span>
+                    <span className="text-primary">499,489.47</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Margin utilization</span>
+                    <span className="text-foreground">0.00%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Margin utilization alert</span>
+                    <span className="text-primary">Off</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Cash available</span>
+                    <span className="text-primary">499,489.47</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-        {/* Bottom Positions Panel */}
-        <div
-          className="bg-black border-2 border-slate-800 rounded-lg m-2 shadow-lg flex flex-col overflow-hidden"
-          style={{ height: positionsHeight }}
-        >
-          <div className="bg-slate-800 px-4 py-2 rounded-t-lg flex items-center justify-between flex-shrink-0">
-            <div className="flex items-center space-x-2">
-              <span className="text-white font-medium text-sm">Portfolio Management</span>
+            {/* Right Panel - Charts */}
+            <div className="flex-1 flex flex-col">
+              {/* Chart Headers */}
+              <div className="flex">
+                {/* First Chart Header */}
+                <div className="flex-1 p-3 border-b border-r border-border bg-card">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-semibold text-foreground">EURUSD 1H</span>
+                    </div>
+                    <div className="flex items-center space-x-1 text-xs">
+                      <button className="text-muted-foreground hover:text-foreground">≡</button>
+                      <button className="text-muted-foreground hover:text-foreground">⚙</button>
+                      <button className="text-muted-foreground hover:text-foreground">↗</button>
+                      <button className="text-muted-foreground hover:text-foreground">🔍</button>
+                      <button className="text-muted-foreground hover:text-foreground">⚡</button>
+                      <button className="text-muted-foreground hover:text-foreground">□</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Second Chart Header */}
+                <div className="flex-1 p-3 border-b border-border bg-card">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-semibold text-foreground">EURUSD 1D</span>
+                    </div>
+                    <div className="flex items-center space-x-1 text-xs">
+                      <button className="text-muted-foreground hover:text-foreground">≡</button>
+                      <button className="text-muted-foreground hover:text-foreground">⚙</button>
+                      <button className="text-muted-foreground hover:text-foreground">↗</button>
+                      <button className="text-muted-foreground hover:text-foreground">🔍</button>
+                      <button className="text-muted-foreground hover:text-foreground">⚡</button>
+                      <button className="text-muted-foreground hover:text-foreground">□</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Charts Content */}
+              <div className="flex-1 flex">
+                <div className="flex-1 border-r border-border bg-background">
+                  <TradingViewChart selectedInstrument="FX:EURUSD" />
+                </div>
+                <div className="flex-1 bg-background">
+                  <TradingViewChart selectedInstrument="FX:EURUSD" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "charts" && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-foreground mb-4">Charts</h2>
+              <p className="text-muted-foreground">Charts functionality coming soon</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "news" && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-foreground mb-4">News & Research</h2>
+              <p className="text-muted-foreground">News and research functionality coming soon</p>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "account" && (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-foreground mb-4">Account</h2>
+              <p className="text-muted-foreground">Account management functionality coming soon</p>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Panel - Positions */}
+        <div className="border-t border-border flex flex-col bg-card" style={{ height: `${positionsHeight}px` }}>
+          {/* Panel Header */}
+          <div className="flex items-center justify-between p-3 border-b border-border">
+            <div className="flex items-center space-x-4">
+              <h2 className="text-sm font-semibold text-foreground">Positions</h2>
+              <div className="flex space-x-4 text-xs">
+                <button className="text-primary border-b border-primary pb-1">Position list</button>
+                <button className="text-muted-foreground hover:text-foreground">Exposure and P/L</button>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 text-xs">
+              <span className="text-muted-foreground">TRIAL_21039730</span>
+              <span className="text-muted-foreground">USD</span>
+              <button className="text-muted-foreground hover:text-foreground">Filter</button>
             </div>
           </div>
 
-          <div className="p-4 flex-1 overflow-auto scrollbar-hide">
-            <table className="w-full">
-              <thead className="sticky top-0 bg-black">
-                <tr className="text-slate-400 text-sm border-b border-slate-700">
-                  <th className="text-left py-2">Product</th>
-                  <th className="text-left py-2">Side</th>
-                  <th className="text-left py-2">Quantity</th>
-                  <th className="text-left py-2">Avg. Price</th>
-                  <th className="text-left py-2">Market Price</th>
-                  <th className="text-left py-2">PnL</th>
+          {/* Positions Table */}
+          <div className="flex-1 overflow-auto scrollbar-hide">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">#</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Status</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">L/S</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Quantity</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Open price</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Current price</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Stop</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Limit</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">P/L</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">P/L (USD)</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">% Price</th>
+                  <th className="text-left py-2 px-3 text-muted-foreground font-medium">Market vs</th>
                 </tr>
               </thead>
               <tbody>
-                {samplePositions.map((position, index) => (
-                  <tr key={index} className="border-b border-slate-800 hover:bg-slate-800">
-                    <td className="py-3 text-white">{position.symbol}</td>
-                    <td className="py-3">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-medium ${
-                          position.side === "long" ? "bg-blue-900 text-blue-300" : "bg-red-900 text-red-300"
-                        }`}
-                      >
-                        {position.side}
-                      </span>
-                    </td>
-                    <td className="py-3 text-white">{position.qty.toLocaleString()}</td>
-                    <td className="py-3 text-white">{position.avgEntry.toFixed(3)}</td>
-                    <td className="py-3 text-white">{position.markPrice.toFixed(5)}</td>
-                    <td className={`py-3 font-bold ${position.unrealizedPnL >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {position.unrealizedPnL.toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                {/* Empty state - no positions */}
+                <tr>
+                  <td colSpan={12} className="py-8 text-center text-muted-foreground">
+                    No positions to display
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
         </div>
       </div>
 
-      {depthOfMarketDetached && (
-        <div
-          className="fixed bg-black border-2 border-slate-800 rounded-lg shadow-2xl z-50"
-          style={{
-            left: depthOfMarketPosition.x,
-            top: depthOfMarketPosition.y,
-            width: 400,
-            height: 500,
-          }}
-        >
-          <div
-            className="bg-slate-800 px-4 py-2 rounded-t-lg flex items-center justify-between cursor-move"
-            onMouseDown={handleDetachedWindowMouseDown}
-          >
-            <span className="text-white font-medium text-sm">Depth of Market</span>
-            <button
-              onClick={() => setDepthOfMarketDetached(false)}
-              className="text-slate-400 hover:text-white transition-colors"
-              title="Close window"
-            >
-              ×
-            </button>
-          </div>
-          <div className="p-4 h-full overflow-hidden">
-            <DepthOfMarket selectedInstrument={selectedInstrument} />
-          </div>
-        </div>
-      )}
-
       {/* Footer */}
-      <footer className="bg-black border-t border-slate-800 px-6 py-3 flex items-center justify-between text-sm">
-        <div className="flex items-center space-x-6">
-          <span className="text-slate-400">TRIAL_s1039730</span>
-          <span className="text-slate-400">USD</span>
-          <span className="text-slate-400">
-            Cash: <span className="text-white">$499,957.57</span>
-          </span>
-          <span className="text-slate-400">
-            Cash available: <span className="text-white">$500,724.02</span>
-          </span>
-          <span className="text-slate-400">
-            Account value: <span className="text-white">$501,107.10</span>
-          </span>
-          <span className="text-slate-400">
-            Margin utilization: <span className="text-blue-400">0.17%</span>
-          </span>
+      <footer className="bg-card border-t border-border px-6 py-2">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center space-x-6">
+            <span>TRIAL_21039730</span>
+            <span>USD</span>
+            <span>
+              Cash: <span className="text-primary font-medium">499,489.47</span>
+            </span>
+            <span>
+              Cash available: <span className="text-primary font-medium">499,724.04</span>
+            </span>
+            <span>
+              Account value: <span className="text-foreground font-medium">499,107.10</span>
+            </span>
+            <span>
+              Initial margin available: <span className="text-primary font-medium">499,527.84</span>
+            </span>
+            <span>
+              Margin utilization: <span className="text-foreground">0.17%</span>
+            </span>
+            <span>
+              Account value shield: <span className="text-primary">Off</span>
+            </span>
+          </div>
+          <div>
+            <span>MARKET DATA PROVIDED BY SaxoBank BANK • DATA DISCLAIMER</span>
+          </div>
         </div>
-        <div className="text-slate-500 text-xs">MARKET DATA PROVIDED BY SpiderX BANK • DATA DISCLAIMER</div>
       </footer>
     </div>
   )
